@@ -30,7 +30,7 @@ class Class:
     day = None
 
     def __init__(self, desc: str, day: int, time: str):
-        self.name = re.findall('^.+$', desc, re.MULTILINE)[0]
+        self.name = re.findall('^\\[.+$', desc, re.MULTILINE)[0]
         self.name = self.name.replace(']', '] ')
         self.desc = desc
         self.day = day
