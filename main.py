@@ -122,6 +122,7 @@ def main():
                         matrix[i][j] = matrix[i0][j0]
             schedule_descs = [matrix_row[SCHEDULE_COLUMN] for matrix_row in matrix]
             schedule_times = [matrix_row[1] for matrix_row in matrix]
+            prev_time, prev_desc = '', ''
             for (time, desc) in zip(schedule_times, schedule_descs):
                 exclude = False
                 for excl in EXCLUDE_STRINGS:
@@ -130,6 +131,9 @@ def main():
                         break
                 if desc == '' or exclude:
                     continue
+                if prev_time == time and prev_desc == desc:
+                    continue
+                prev_time, prev_desc = time, desc
                 cl = Class(desc, day, time)
                 cal.add_component(cl.to_event())
         sys.stdout.buffer.write(cal.to_ical())
