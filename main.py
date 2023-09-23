@@ -16,7 +16,7 @@ SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
 DAYS = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU']
 
 SPREADSHEET_ID = os.environ['SPREADSHEET_ID']
-SCHEDULE_RANGES = os.environ['SCHEDULE_RANGES'].split(',')
+SCHEDULE_SHEET = os.environ['SCHEDULE_SHEET']
 SCHEDULE_COLUMN = int(os.environ['SCHEDULE_COLUMN'])
 EXCLUDE_STRINGS = os.environ['EXCLUDE_STRINGS'].split(',')
 
@@ -91,8 +91,19 @@ def main():
     try:
         service = build('sheets', 'v4', credentials=creds)
         spreadsheets = service.spreadsheets()
+        schedule_ranges = list()
         result = spreadsheets.get(spreadsheetId=SPREADSHEET_ID,
-                                  ranges=SCHEDULE_RANGES,
+                                  ranges=[SCHEDULE_SHEET + '!A:A'],
+                                  includeGridData=True).execute()
+        for merge in result['sheets'][0]['merges']:
+            i0, i1 = merge['startRowIndex'], merge['endRowIndex']
+            j0, j1 = merge['startColumnIndex'], merge['endColumnIndex']
+            if j0 == 0 and j1 == 1:
+                schedule_ranges.append((i0, i1))
+        schedule_ranges = sorted(schedule_ranges)
+        schedule_ranges = [SCHEDULE_SHEET + '!' + str(i0 + 1) + ':' + str(i1) for (i0, i1) in schedule_ranges]
+        result = spreadsheets.get(spreadsheetId=SPREADSHEET_ID,
+                                  ranges=schedule_ranges,
                                   includeGridData=True).execute()
         sheet = result['sheets'][0]
         cal = Calendar()
