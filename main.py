@@ -3,6 +3,7 @@ import re
 import sys
 from datetime import datetime
 
+import pytz
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -66,7 +67,7 @@ class Class:
     def to_event(self):
         ev = Event()
         ev.add('summary', self.get_informative_name())
-        ev.add('description', self.desc)
+        ev.add('description', self.desc + '\n\n# ' + str(datetime.now(tz=pytz.timezone('Europe/Moscow'))))
         ev.add('dtstart', self.beg_time)
         ev.add('dtend', self.end_time)
         ev.add('rrule', {
