@@ -1,157 +1,83 @@
-import os.path
-import re
-import sys
-from datetime import datetime
-
 import pytz
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
-
+import sys
+import os
+import requests as req
+from datetime import datetime
 from icalendar import Calendar, Event
-
-SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
 
 DAYS = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU']
 
-SPREADSHEET_ID = os.environ['SPREADSHEET_ID']
-SCHEDULE_SHEET = os.environ['SCHEDULE_SHEET']
-SCHEDULE_COLUMN = int(os.environ['SCHEDULE_COLUMN'])
-EXCLUDE_STRINGS = os.environ['EXCLUDE_STRINGS'].split(',')
+EMAIL = os.environ['EMAIL']
+
+CLASS_DESC_FIELDS = [
+    (lambda json: json['discipline'], 'Предмет'),
+    (lambda json: json['type'], 'Тип'),
+    (lambda json: json['lecturer_profiles'][0]['full_name'], 'Преподаватель')
+]
+
+
+def abbreviate(string: str):
+    result_parts = ['']
+    for part in string.split(' '):
+        if len(part) == 0:
+            continue
+        if not part.isalpha():
+            if len(result_parts[-1]) != 0:
+                result_parts.append('')
+            result_parts[-1] += part
+            result_parts.append('')
+            continue
+        if len(part) == 1:
+            result_parts[-1] += part
+        else:
+            result_parts[-1] += part[0].upper()
+    result = ' '.join(result_parts)
+    return result
 
 
 class Class:
     name: str = None
+    type: str = None
     desc = None
     location = None
     beg_time = None
     end_time = None
-    day = None
 
-    def __init__(self, desc: str, day: int, time: str):
-        self.name = re.findall('^\\[.+$', desc, re.MULTILINE)[0]
-        self.name = self.name.replace(']', '] ')
-        self.desc = desc
-        self.day = day
-        location_match = re.compile('ауд\\. (\\w+)', re.MULTILINE | re.IGNORECASE).search(desc)
-        if location_match is not None:
-            self.location = location_match.group(1)
-        time_beg, time_end = time.split('-')
-        time_beg_h, time_beg_m = map(int, time_beg.replace(':', '.').split('.'))
-        time_end_h, time_end_m = map(int, time_end.replace(':', '.').split('.'))
-        self.beg_time = datetime(2023, 9, 4 + day, time_beg_h, time_beg_m, 0)
-        self.end_time = datetime(2023, 9, 4 + day, time_end_h, time_end_m, 0)
+    def __init__(self, json):
+        self.name = json['discipline']
+        if '(' in self.name:
+            self.name = self.name[:self.name.find('(')].strip()
+        self.type = json['type']
+        self.desc = ''
+        for (field_fn, field_name) in CLASS_DESC_FIELDS:
+            self.desc += f'{field_name}: {field_fn(json)}\n'
+        self.desc += '\n\n# ' + str(datetime.now(tz=pytz.timezone('Europe/Moscow')))
+        self.location = json['auditorium']
+        self.beg_time = datetime.fromisoformat(json['date_start'])
+        self.end_time = datetime.fromisoformat(json['date_end'])
 
-    def get_informative_name(self):
-        result_parts = ['']
-        for part in self.name.split(' '):
-            if len(part) == 0:
-                continue
-            if not part.isalpha():
-                if len(result_parts[-1]) != 0:
-                    result_parts.append('')
-                result_parts[-1] += part
-                result_parts.append('')
-                continue
-            if len(part) == 1:
-                result_parts[-1] += part
-            else:
-                result_parts[-1] += part[0].upper()
-        result = ' '.join(result_parts)
-        if self.location is not None:
-            result += ' ' + self.location
-        return result
+    def get_summary(self):
+        return f'[{abbreviate(self.type)}] {abbreviate(self.name)} {self.location}'
 
     def to_event(self):
         ev = Event()
-        ev.add('summary', self.get_informative_name())
-        ev.add('description', self.desc + '\n\n# ' + str(datetime.now(tz=pytz.timezone('Europe/Moscow'))))
+        ev.add('summary', self.get_summary())
+        ev.add('description', self.desc)
         ev.add('dtstart', self.beg_time)
         ev.add('dtend', self.end_time)
-        ev.add('rrule', {
-            'freq': 'weekly',
-            'byday': DAYS[self.day]
-        })
         return ev
 
 
 def main():
-    creds = None
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0)
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
-    try:
-        service = build('sheets', 'v4', credentials=creds)
-        spreadsheets = service.spreadsheets()
-        schedule_ranges = list()
-        result = spreadsheets.get(spreadsheetId=SPREADSHEET_ID,
-                                  ranges=[SCHEDULE_SHEET + '!A:A'],
-                                  includeGridData=True).execute()
-        for merge in result['sheets'][0]['merges']:
-            i0, i1 = merge['startRowIndex'], merge['endRowIndex']
-            j0, j1 = merge['startColumnIndex'], merge['endColumnIndex']
-            if j0 == 0 and j1 == 1:
-                schedule_ranges.append((i0, i1))
-        schedule_ranges = sorted(schedule_ranges)
-        schedule_ranges = [SCHEDULE_SHEET + '!' + str(i0 + 1) + ':' + str(i1) for (i0, i1) in schedule_ranges]
-        result = spreadsheets.get(spreadsheetId=SPREADSHEET_ID,
-                                  ranges=schedule_ranges,
-                                  includeGridData=True).execute()
-        sheet = result['sheets'][0]
-        cal = Calendar()
-        cal.add('prodid', '-//HSE Calendar//avevad.com//')
-        cal.add('version', '2.0')
-        for (day, data) in enumerate(sheet['data']):
-            matrix = []
-            beg_row = data['startRow']
-            end_row = beg_row + len(data['rowData'])
-            for row in data['rowData']:
-                matrix_row = []
-                for cell in row['values']:
-                    if 'userEnteredValue' in cell:
-                        matrix_row.append(cell['userEnteredValue']['stringValue'])
-                    else:
-                        matrix_row.append('')
-                matrix.append(matrix_row)
-            for merge in sheet['merges']:
-                i0, i1 = merge['startRowIndex'], merge['endRowIndex']
-                j0, j1 = merge['startColumnIndex'], merge['endColumnIndex']
-                if i1 <= beg_row or end_row <= i0:
-                    continue
-                i0 -= beg_row
-                i1 -= beg_row
-                for i in range(i0, i1):
-                    for j in range(j0, j1):
-                        matrix[i][j] = matrix[i0][j0]
-            schedule_descs = [matrix_row[SCHEDULE_COLUMN] for matrix_row in matrix]
-            schedule_times = [matrix_row[1] for matrix_row in matrix]
-            prev_time, prev_desc = '', ''
-            for (time, desc) in zip(schedule_times, schedule_descs):
-                exclude = False
-                for excl in EXCLUDE_STRINGS:
-                    if excl in desc:
-                        exclude = True
-                        break
-                if desc == '' or exclude:
-                    continue
-                if prev_time == time and prev_desc == desc:
-                    continue
-                prev_time, prev_desc = time, desc
-                cl = Class(desc, day, time)
-                cal.add_component(cl.to_event())
-        sys.stdout.buffer.write(cal.to_ical())
-        sys.stdout.buffer.flush()
-    except HttpError as err:
-        print(err)
+    cal = Calendar()
+    cal.add('prodid', '-//HSE Calendar//avevad.com//')
+    cal.add('version', '2.0')
+    result = req.get(f'https://api.hseapp.ru/v3/ruz/lessons?start={datetime.now().strftime("%Y-%m-%d")}&email={EMAIL}')
+    for class_json in result.json():
+        cl = Class(class_json)
+        cal.add_component(cl.to_event())
+    sys.stdout.buffer.write(cal.to_ical())
+    sys.stdout.buffer.flush()
 
 
 if __name__ == '__main__':
