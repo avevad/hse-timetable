@@ -11,12 +11,13 @@ EMAIL = os.environ['EMAIL']
 
 CLASS_DESC_FIELDS = [
     (lambda json: json['discipline'], 'Предмет'),
-    (lambda json: json['type'], 'Тип'),
+    (lambda json: json.get('type', '?'), 'Тип'),
     (lambda json: json['lecturer_profiles'][0]['full_name'], 'Преподаватель')
 ]
 
 
 def abbreviate(string: str):
+    if len(string.split(' ')) > 4: return string
     result_parts = ['']
     for part in string.split(' '):
         if len(part) == 0:
@@ -31,7 +32,7 @@ def abbreviate(string: str):
             result_parts[-1] += part
         else:
             result_parts[-1] += part[0].upper()
-    result = ' '.join(result_parts)
+    result = ' '.join(result_parts).strip()
     return result
 
 
@@ -43,11 +44,11 @@ class Class:
     beg_time = None
     end_time = None
 
-    def __init__(self, json):
+    def __init__(self, json: dict):
         self.name = json['discipline']
         if '(' in self.name:
             self.name = self.name[:self.name.find('(')].strip()
-        self.type = json['type']
+        self.type = json.get('type', '?')
         self.desc = ''
         for (field_fn, field_name) in CLASS_DESC_FIELDS:
             self.desc += f'{field_name}: {field_fn(json)}\n'
