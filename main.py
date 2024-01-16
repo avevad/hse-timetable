@@ -17,7 +17,7 @@ CLASS_DESC_FIELDS = [
 
 
 def abbreviate(string: str):
-    if len(string.split(' ')) > 4: return string
+    if len(string.split(' ')) > 4 or len(string.split(' ')) == 1: return string
     result_parts = ['']
     for part in string.split(' '):
         if len(part) == 0:
