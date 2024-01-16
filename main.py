@@ -16,9 +16,9 @@ CLASS_DESC_FIELDS = [
 ]
 
 
-def abbreviate(string: str):
+def abbreviate(string: str, is_type=False):
     if len(string.split(' ')) > 4: return string
-    if len(string.split(' ')) == 1:
+    if len(string.split(' ')) == 1 and not is_type:
         return string[:3]
     result_parts = ['']
     for part in string.split(' '):
@@ -60,7 +60,7 @@ class Class:
         self.end_time = datetime.fromisoformat(json['date_end'])
 
     def get_summary(self):
-        return f'[{abbreviate(self.type)}] {abbreviate(self.name)} {self.location}'
+        return f'[{abbreviate(self.type, True)}] {abbreviate(self.name)} {self.location}'
 
     def to_event(self):
         ev = Event()
