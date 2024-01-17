@@ -8,6 +8,7 @@ from icalendar import Calendar, Event
 DAYS = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU']
 
 EMAIL = os.environ['EMAIL']
+SHORT = os.environ['SHORT']
 
 CLASS_DESC_FIELDS = [
     (lambda json: json['discipline'], 'Предмет'),
@@ -54,13 +55,21 @@ class Class:
         self.desc = ''
         for (field_fn, field_name) in CLASS_DESC_FIELDS:
             self.desc += f'{field_name}: {field_fn(json)}\n'
-        self.desc += '\n\n# ' + str(datetime.now(tz=pytz.timezone('Europe/Moscow')))
         self.location = json['auditorium']
+
+        if SHORT == '0':
+            self.desc += f'Аудитория: {self.location}'
+
+        self.desc += '\n\n# ' + str(datetime.now(tz=pytz.timezone('Europe/Moscow')))
+
         self.beg_time = datetime.fromisoformat(json['date_start'])
         self.end_time = datetime.fromisoformat(json['date_end'])
 
     def get_summary(self):
-        return f'[{abbreviate(self.type, True)}] {abbreviate(self.name)} {self.location}'
+        if SHORT == '1':
+            return f'[{abbreviate(self.type, True)}] {abbreviate(self.name)} {self.location}'
+        else:
+            return f'[{self.type}] {self.name}'
 
     def to_event(self):
         ev = Event()
@@ -68,6 +77,7 @@ class Class:
         ev.add('description', self.desc)
         ev.add('dtstart', self.beg_time)
         ev.add('dtend', self.end_time)
+
         return ev
 
 
