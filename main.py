@@ -9,6 +9,7 @@ DAYS = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU']
 
 EMAIL = os.environ['EMAIL']
 SHORT = os.environ['SHORT']
+DEBUG = os.environ['DEBUG']
 
 CLASS_DESC_FIELDS = [
     (lambda json: json['discipline'], 'Предмет'),
@@ -60,7 +61,8 @@ class Class:
         if SHORT == '0':
             self.desc += f'Аудитория: {self.location}'
 
-        self.desc += '\n\n# ' + str(datetime.now(tz=pytz.timezone('Europe/Moscow')))
+        if DEBUG == '1':
+            self.desc += '\n\n# ' + str(datetime.now(tz=pytz.timezone('Europe/Moscow')))
 
         self.beg_time = datetime.fromisoformat(json['date_start'])
         self.end_time = datetime.fromisoformat(json['date_end'])
