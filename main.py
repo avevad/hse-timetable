@@ -17,11 +17,33 @@ CLASS_DESC_FIELDS = [
     (lambda json: json['lecturer_profiles'][0]['full_name'], 'Преподаватель')
 ]
 
+SUBJECT_SHORTNAMES = {
+    'Линейная алгебра и геометрия': 'Линал',
+    'Математический анализ': 'Матан',
+    'История России': 'История',
+    'Язык программирования Python': 'Python',
+    'Язык программирования C++': 'C++',
+    'Алгоритмы и структуры данных': 'Алгосы',
+    'Дискретная математика': 'Дискра',
+    'Теория вероятностей': 'Теорвер',
+    'Язык программирования Rust': 'Rust',
+    'Архитектура компьютера': 'АКОС',
+    'Операционные системы': 'АКОС',
+    'Математическая статистика': 'Матстат',
+    'Дифференциальные уравнения': 'Диффуры',
+    'Функциональный анализ': 'Функан',
+    'Комплексный анализ': 'Комплан',
+    'Машинное обучение': 'ML',
+    'Глубинное обучение': 'DL',
+    'DevOps': 'DevOps',
+    'Язык SQL': 'SQL',
+}
 
-def abbreviate(string: str, is_type=False):
+
+def abbreviate(string: str, is_type=False, fallback_len=3):
     if len(string.split(' ')) > 4: return string
     if len(string.split(' ')) == 1 and not is_type:
-        return string[:3]
+        return string[:fallback_len]
     result_parts = ['']
     for part in string.split(' '):
         if len(part) == 0:
@@ -68,7 +90,14 @@ class Class:
         self.end_time = datetime.fromisoformat(json['date_end'])
 
     def get_summary(self):
-        if SHORT == '1':
+        if SHORT == '2':
+            abbr_name = abbreviate(self.name, fallback_len=7)
+            for key, value in SUBJECT_SHORTNAMES.items():
+                if key in self.name:
+                    abbr_name = value
+                    break
+            return f'[{abbreviate(self.type, True)}] {abbr_name} {self.location}'
+        elif SHORT == '1':
             return f'[{abbreviate(self.type, True)}] {abbreviate(self.name)} {self.location}'
         else:
             return f'[{self.type}] {self.name}'
