@@ -2,7 +2,7 @@ import pytz
 import sys
 import os
 import requests as req
-from datetime import datetime
+from datetime import datetime, timedelta
 from icalendar import Calendar, Event
 
 DAYS = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU']
@@ -116,7 +116,9 @@ def main():
     cal = Calendar()
     cal.add('prodid', '-//HSE Calendar//avevad.com//')
     cal.add('version', '2.0')
-    result = req.get(f'https://api.hseapp.ru/v3/ruz/lessons?start={datetime.now().strftime("%Y-%m-%d")}&email={EMAIL}')
+    start_time = datetime.now()
+    start_time -= timedelta(days=start_time.weekday())
+    result = req.get(f'https://api.hseapp.ru/v3/ruz/lessons?start={start_time.strftime("%Y-%m-%d")}&email={EMAIL}')
     for class_json in result.json():
         cl = Class(class_json)
         cal.add_component(cl.to_event())
