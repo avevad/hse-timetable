@@ -7,6 +7,8 @@ from icalendar import Calendar, Event
 
 DAYS = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU']
 
+UID_SUFFIX = '@hse-sched.avevad.com'
+
 EMAIL = os.environ['EMAIL']
 SHORT = os.environ['SHORT']
 DEBUG = os.environ['DEBUG']
@@ -63,14 +65,17 @@ def abbreviate(string: str, is_type=False, fallback_len=3):
 
 
 class Class:
+    ruz_id: str = None
     name: str = None
     type: str = None
     desc = None
+    auditorium = None
     location = None
     beg_time = None
     end_time = None
 
     def __init__(self, json: dict):
+        self.ruz_id = json["id"]
         self.name = json['discipline']
         if '(' in self.name:
             self.name = self.name[:self.name.find('(')].strip()
@@ -78,13 +83,13 @@ class Class:
         self.desc = ''
         for (field_fn, field_name) in CLASS_DESC_FIELDS:
             self.desc += f'{field_name}: {field_fn(json)}\n'
-        self.location = json['auditorium']
-
+        self.auditorium = json['auditorium']
+        self.location = f'{self.auditorium}, {json["building"]}'
         if SHORT == '0':
-            self.desc += f'Аудитория: {self.location}'
+            self.desc += f'Аудитория: {self.auditorium}'
 
         if DEBUG == '1':
-            self.desc += '\n\n# ' + str(datetime.now(tz=pytz.timezone('Europe/Moscow')))
+            self.desc += f'\n\n# {datetime.now(tz=pytz.timezone("Europe/Moscow"))} #{self.ruz_id}'
 
         self.beg_time = datetime.fromisoformat(json['date_start'])
         self.end_time = datetime.fromisoformat(json['date_end'])
@@ -96,15 +101,17 @@ class Class:
                 if key in self.name:
                     abbr_name = value
                     break
-            return f'[{abbreviate(self.type, True)}] {abbr_name} {self.location}'
+            return f'[{abbreviate(self.type, True)}] {abbr_name} {self.auditorium}'
         elif SHORT == '1':
-            return f'[{abbreviate(self.type, True)}] {abbreviate(self.name)} {self.location}'
+            return f'[{abbreviate(self.type, True)}] {abbreviate(self.name)} {self.auditorium}'
         else:
             return f'[{self.type}] {self.name}'
 
     def to_event(self):
         ev = Event()
         ev.add('summary', self.get_summary())
+        ev.add('location', self.location)
+        ev.add('uid', f'{self.ruz_id}{UID_SUFFIX}')
         ev.add('description', self.desc)
         ev.add('dtstart', self.beg_time)
         ev.add('dtend', self.end_time)
