@@ -73,6 +73,7 @@ class Class:
     location = None
     beg_time = None
     end_time = None
+    init_time = None
 
     def __init__(self, json: dict):
         self.ruz_id = json["id"]
@@ -88,8 +89,10 @@ class Class:
         if SHORT == '0':
             self.desc += f'Аудитория: {self.auditorium}'
 
+        self.init_time = datetime.now(tz=pytz.timezone('Europe/Moscow'))
+
         if DEBUG == '1':
-            self.desc += f'\n\n# {datetime.now(tz=pytz.timezone("Europe/Moscow"))} #{self.ruz_id}'
+            self.desc += f'\n\n# {self.init_time} #{self.ruz_id}'
 
         self.beg_time = datetime.fromisoformat(json['date_start'])
         self.end_time = datetime.fromisoformat(json['date_end'])
@@ -115,6 +118,7 @@ class Class:
         ev.add('description', self.desc)
         ev.add('dtstart', self.beg_time)
         ev.add('dtend', self.end_time)
+        ev.add('last-modified', self.init_time)
 
         return ev
 
