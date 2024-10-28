@@ -85,7 +85,11 @@ class Class:
         for (field_fn, field_name) in CLASS_DESC_FIELDS:
             self.desc += f'{field_name}: {field_fn(json)}\n'
         self.auditorium = json['auditorium']
-        self.location = f'{self.auditorium}, {json["building"]}'
+        
+        self.location = f'{self.auditorium}'
+        if 'building' in json:
+            self.location += f', {json["building"]}'
+        
         if SHORT == '0':
             self.desc += f'Аудитория: {self.auditorium}'
 
