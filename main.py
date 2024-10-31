@@ -95,7 +95,7 @@ class Class:
             self.location += f', {json["building"]}'
         
         if SHORT == '0':
-            self.desc += f'Аудитория: {self.auditorium}\n'
+            self.desc += f'Аудитория: {self.auditorium}'
 
         self.init_time = datetime.now(tz=pytz.timezone('Europe/Moscow'))
 
