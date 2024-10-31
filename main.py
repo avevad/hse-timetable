@@ -16,7 +16,8 @@ DEBUG = os.environ['DEBUG']
 CLASS_DESC_FIELDS = [
     (lambda json: json['discipline'], 'Предмет'),
     (lambda json: json.get('type', '?'), 'Тип'),
-    (lambda json: json['lecturer_profiles'][0]['full_name'], 'Преподаватель')
+    (lambda json: json['lecturer_profiles'][0]['full_name'], 'Преподаватель'),
+    (lambda json: json.get('note'), 'Примечание')
 ]
 
 SUBJECT_SHORTNAMES = {
@@ -83,7 +84,10 @@ class Class:
         self.type = json.get('type', '?')
         self.desc = ''
         for (field_fn, field_name) in CLASS_DESC_FIELDS:
-            self.desc += f'{field_name}: {field_fn(json)}\n'
+            field_value = field_fn(json)
+            if field_value is not None:
+                self.desc += f'{field_name}: {field_fn(json)}\n'
+
         self.auditorium = json['auditorium']
         
         self.location = f'{self.auditorium}'
@@ -92,9 +96,6 @@ class Class:
         
         if SHORT == '0':
             self.desc += f'Аудитория: {self.auditorium}\n'
-
-        if 'note' in json:
-            self.desc += f'\nПримечание: {json["note"]}\n'
 
         self.init_time = datetime.now(tz=pytz.timezone('Europe/Moscow'))
 
